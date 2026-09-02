@@ -23,8 +23,15 @@
 
 :host {
   display: block;
-  height: 100%;
   font-size: 17px;
+
+  /* A definite height, not 100%. Home Assistant's panel container does not give
+     us one, so `height: 100%` resolves to auto: the app grows to fit 60 days of
+     agenda, the bottom navigation ends up below all of it, and `.screen-body`
+     never becomes a scroll container -- which is also why the wheel only worked
+     over the page outside the app. */
+  height: 100vh;
+  height: 100dvh;
 }
 
 /* The app's own surface. Inside a Home Assistant panel there is no body to
@@ -713,6 +720,36 @@ button {
   flex-direction: column;
   justify-content: flex-end;
   animation: fade 0.18s var(--ease);
+}
+
+/* Anywhere but a phone, centre it. The bottom sheet was for thumb reach on a
+   hand-held device; a wall-mounted tablet and a desktop are neither, and a
+   full-width panel glued to the bottom edge reads badly on both. */
+@media (min-width: 600px) {
+  .sheet-scrim {
+    justify-content: center;
+    align-items: center;
+    padding: var(--s-5);
+  }
+
+  .sheet {
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 560px;
+    max-height: 100%;
+    animation: appear 0.18s var(--ease);
+  }
+
+  .sheet-grip {
+    display: none;
+  }
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
 }
 
 @keyframes fade {

@@ -48,10 +48,12 @@ Three pages stand in for a test runner, none of which connect to anything:
 
 Check them headlessly, but note two traps:
 
-- **`--virtual-time-budget` fast-forwards timers without waiting for I/O.** Fine
-  for `selftest.html` and `preview.html`; for anything with a live connection it
-  reports false failures (`readyState=0`, promises that never settle). Drive
-  Chrome over the DevTools protocol in real time instead.
+- **`--virtual-time-budget` fast-forwards timers without waiting for I/O or
+  settling CSS animations.** Fine for `preview.html`. It reports false failures
+  for anything with a live connection (`readyState=0`, promises that never
+  settle) *and* for `panelcheck.html`, which measures a sheet's position after
+  it has animated in. Drive Chrome over the DevTools protocol in real time for
+  both.
 - **Never launch Firefox without `-profile <tempdir> --no-remote`** — plain
   `firefox --headless` seizes the user's default profile lock and blocks their
   running browser.

@@ -12,7 +12,7 @@ can open this, as themselves.
 
 There is **no build step and no dependencies** — plain ES modules and CSS.
 
-> **Version 0.1.1 — first install.** Everything here has been verified against a
+> **Version 0.1.2 — early.** Everything here has been verified against a
 > real Home Assistant except the write paths: creating, editing and deleting
 > events, and adding or editing tasks. Those are exercised by the test suite
 > against a stubbed connection, but have not yet been run against live data.
@@ -63,7 +63,7 @@ to clear.
 HACS tracks GitHub releases, so an update is:
 
 1. Bump `version` in `custom_components/family_calendar/manifest.json` (HACS reads this, and the tag must match)
-2. Commit, then tag and push: `git tag v0.1.2 && git push --tags`
+2. Commit, then tag and push: `git tag v0.1.3 && git push --tags`
 3. Publish a release for that tag on GitHub
 
 The `Validate` workflow runs hassfest and the HACS action on every push, which

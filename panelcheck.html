@@ -23,6 +23,10 @@
       #host { width: 800px; height: 1280px; box-shadow: 0 10px 40px rgba(0,0,0,.25);
               transform: scale(0.5); transform-origin: top left; }
       #wrap { width: 400px; height: 640px; overflow: hidden; }
+      /* The panel sizes itself to the viewport in Home Assistant. Here it has
+         to be the tablet instead, so the harness keeps representing 800x1280.
+         A document rule beats the element's own :host styles. */
+      #host family-calendar-panel { height: 1280px; }
     </style>
   </head>
   <body>
@@ -199,6 +203,45 @@
          calls.includes('ws:frontend/get_user_data'));
       ok('and the stored copy beat the stale local cache',
          root && root.querySelector('.waste'));
+
+      // The panel must not grow past its container: if it does, the bottom
+      // navigation ends up below the fold and nothing inside scrolls.
+      const hostBox = panel.getBoundingClientRect();
+      const rootBox = root && root.querySelector('.app-root').getBoundingClientRect();
+      ok('app is bounded to the panel, not to its content',
+         rootBox && Math.round(rootBox.height) <= Math.round(hostBox.height) + 1);
+
+      const body = root && root.querySelector('.screen-body');
+      ok('the scrolling region is inside the app, not the page',
+         body && getComputedStyle(body).overflowY === 'auto');
+
+      const nav = root && root.querySelector('.nav');
+      const navBox = nav && nav.getBoundingClientRect();
+      ok('bottom navigation sits within the visible panel',
+         navBox && Math.round(navBox.bottom) <= Math.round(hostBox.bottom) + 1);
+
+      // Tapping a row must open its sheet somewhere the user can see it. This
+      // was the visible symptom of the unbounded height: the sheet anchored to
+      // the bottom of a very tall element, far below the fold.
+      const firstEvent = root && root.querySelector('.event');
+      if (firstEvent) {
+        const at = firstEvent.getBoundingClientRect();
+        const opts = { bubbles: true, cancelable: true, pointerId: 77,
+                       clientX: at.left + 20, clientY: at.top + 20 };
+        firstEvent.dispatchEvent(new PointerEvent('pointerdown', opts));
+        firstEvent.dispatchEvent(new PointerEvent('pointerup', opts));
+        // Long enough for the sheet to finish animating in. Measuring mid-slide
+        // puts it below the fold and fails for no reason.
+        await new Promise((r) => setTimeout(r, 450));
+      }
+
+      const sheet = root && root.querySelector('.sheet');
+      ok('tapping an event opens its detail sheet', !!sheet);
+      if (sheet) {
+        const sb = sheet.getBoundingClientRect();
+        ok('the sheet opens inside the visible panel',
+           sb.top >= hostBox.top - 1 && sb.bottom <= hostBox.bottom + 1);
+      }
 
       ok('night class scoped to our root, not the page',
          !document.documentElement.classList.contains('night'));
