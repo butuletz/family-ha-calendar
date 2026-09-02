@@ -1,0 +1,34 @@
+name: Validate
+
+# Catches manifest and structure mistakes before an update is installed —
+# a broken integration only announces itself as "failed to set up" in the log,
+# long after the fact.
+on:
+  push:
+  pull_request:
+  schedule:
+    # Both checks track upstream rules, so a green repo can go red without a
+    # commit. Weekly is enough to notice.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  hassfest:
+    name: Home Assistant hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    name: HACS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration
+          # `brands` only applies to integrations submitted to the public HACS
+          # store, which needs a logo in home-assistant/brands. This is
+          # installed as a custom repository, so the check does not apply.
+          ignore: brands

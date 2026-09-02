@@ -1,0 +1,111 @@
+/*
+ * Design tokens.
+ *
+ * Day and night are two complete palettes swapped by a `night` class on the
+ * root element, driven by the clock rather than the OS theme — a wall tablet in
+ * a dark kitchen needs to stop being a lamp regardless of what Android thinks.
+ *
+ * Fonts are the platform stack on purpose. The tablet must work with no
+ * internet, so nothing is fetched from a font host.
+ */
+
+:root,
+:host,
+.app-root {
+  /* ── Surfaces ───────────────────────────────────────────── */
+  --bg: #f2f4f8;
+  --card: #ffffff;
+  --card-2: #e9edf3;
+  --rule: #e1e5ec;
+  --rule-strong: #cdd4de;
+  --scrim: rgba(12, 16, 22, 0.45);
+
+  /* ── Text ───────────────────────────────────────────────── */
+  --ink: #131922;
+  --ink-2: #626d7d;
+  --ink-3: #939dab;
+
+  /* ── Accent and state ───────────────────────────────────── */
+  --accent: #2f5fd8;
+  --accent-ink: #ffffff;
+  --accent-soft: #e6ecfb;
+  --ok: #0e8a6e;
+  --warn: #a96a12;
+  --danger: #c0392f;
+
+  /* ── Calendar defaults (overridden per entity at runtime) ─ */
+  --cal-family: #2f5fd8;
+  --cal-alex: #0e8a6e;
+  --cal-waste: #a96a12;
+
+  /* ── Type ───────────────────────────────────────────────── */
+  --font: Roboto, "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Roboto Mono", ui-monospace, "Courier New", monospace;
+
+  --t-xs: 0.75rem;
+  --t-sm: 0.875rem;
+  --t-md: 1rem;
+  --t-lg: 1.125rem;
+  --t-xl: 1.375rem;
+  --t-2xl: 1.75rem;
+  --t-3xl: 2.25rem;
+  --t-clock: 3.25rem;
+
+  /* ── Space ──────────────────────────────────────────────── */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+
+  --radius: 14px;
+  --radius-sm: 9px;
+  --radius-lg: 22px;
+
+  /* Minimum comfortable touch target on a wall-mounted tablet. */
+  --touch: 56px;
+  --row: 72px;
+
+  --shadow: 0 1px 2px rgba(16, 22, 30, 0.06), 0 6px 18px -10px rgba(16, 22, 30, 0.22);
+  --shadow-lift: 0 4px 10px rgba(16, 22, 30, 0.1), 0 24px 48px -20px rgba(16, 22, 30, 0.4);
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+:root.night,
+:host(.night),
+.app-root.night,
+.night {
+  --bg: #0a0d12;
+  --card: #141a23;
+  --card-2: #1c232d;
+  --rule: #232c38;
+  --rule-strong: #33404f;
+  --scrim: rgba(0, 0, 0, 0.7);
+
+  --ink: #e9edf3;
+  --ink-2: #98a3b2;
+  --ink-3: #6b7683;
+
+  --accent: #7099f7;
+  --accent-ink: #08101f;
+  --accent-soft: #18233a;
+  --ok: #34bc9d;
+  --warn: #dda04a;
+  --danger: #e9695c;
+
+  --cal-family: #7099f7;
+  --cal-alex: #34bc9d;
+  --cal-waste: #dda04a;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 18px -10px rgba(0, 0, 0, 0.8);
+  --shadow-lift: 0 4px 10px rgba(0, 0, 0, 0.5), 0 24px 48px -20px rgba(0, 0, 0, 0.9);
+}
+
+/* Dim the whole surface at night rather than only recolouring it. */
+.app-root.night {
+  filter: brightness(0.86);
+}

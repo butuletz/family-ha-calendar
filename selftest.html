@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Self test — Family Wall Calendar</title>
+    <link rel="stylesheet" href="custom_components/family_calendar/frontend/styles/tokens.css" />
+    <link rel="stylesheet" href="custom_components/family_calendar/frontend/styles/app.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font);
+        overflow: auto;
+      }
+      h1 { font-size: 1.4rem; margin: 0 0 4px; }
+      p.lede { margin: 0 0 20px; color: var(--ink-2); font-size: 0.9rem; max-width: 60ch; }
+      #summary { font-size: 1.05rem; font-weight: 700; padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; }
+      #summary.pass { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+      #summary.fail { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+      .group { margin-bottom: 18px; }
+      .group h2 { font-size: 0.7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 6px; }
+      .case { display: flex; gap: 10px; padding: 5px 0; font-size: 0.85rem; border-bottom: 1px solid var(--rule); }
+      .case .mark { flex: none; font-weight: 700; width: 18px; }
+      .case.ok .mark { color: var(--ok); }
+      .case.no .mark { color: var(--danger); }
+      .case .detail { color: var(--ink-3); font-family: var(--font-mono); font-size: 0.78rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Self test</h1>
+    <p class="lede">
+      There is no test runner in this project — open this page in a browser to
+      check the date, event, waste-parsing and interaction logic. Nothing here
+      touches Home Assistant.
+    </p>
+    <div id="summary">Running…</div>
+    <div id="results"></div>
+    <div id="app" hidden></div>
+
+    <script type="module">
+      import {
+        setTimeZone,
+        dayKey,
+        zonedDate,
+        addDays,
+        daysBetween,
+        monthGrid,
+        fmtDue,
+        haLocalDateTime,
+      } from './custom_components/family_calendar/frontend/app/util/dates.js';
+      import { normaliseEvent, groupByDay } from './custom_components/family_calendar/frontend/app/data/calendars.js';
+      import { parseFraction, groupCollections, upcomingCollections, wasteSchedule, putOutDay } from './custom_components/family_calendar/frontend/app/data/waste.js';
+      import {
+        buildSourceRegistry,
+        fetchSettings,
+        saveSettings,
+        cachedSettings,
+        SETTINGS_KEY,
+      } from './custom_components/family_calendar/frontend/app/config.js';
+      import { todoRow, eventRow, wasteBanner } from './custom_components/family_calendar/frontend/app/ui/components/rows.js';
+      import { tappable } from './custom_components/family_calendar/frontend/app/util/dom.js';
+      import { openSheet, closeSheet } from './custom_components/family_calendar/frontend/app/ui/components/sheet.js';
+
+      setTimeZone('Europe/Brussels');
+
+      const results = document.getElementById('results');
+      let passed = 0;
+      let failed = 0;
+      let group = null;
+
+      function section(name) {
+        group = document.createElement('div');
+        group.className = 'group';
+        const h = document.createElement('h2');
+        h.textContent = name;
+        group.appendChild(h);
+        results.appendChild(group);
+      }
+
+      function is(label, actual, expected) {
+        const a = JSON.stringify(actual);
+        const e = JSON.stringify(expected);
+        const ok = a === e;
+        ok ? passed++ : failed++;
+
+        const row = document.createElement('div');
+        row.className = `case ${ok ? 'ok' : 'no'}`;
+        row.innerHTML =
+          `<span class="mark">${ok ? '✓' : '✗'}</span>` +
+          `<span>${label}` +
+          (ok ? '' : ` <span class="detail">got ${a}, expected ${e}</span>`) +
+          `</span>`;
+        group.appendChild(row);
+      }
+
+      /* ── Timezone ──────────────────────────────────────────────────── */
+      section('Dates — Europe/Brussels');
+
+      // Summer (UTC+2): 21:30Z is still the same day locally, 22:30Z is not.
+      is('summer evening stays on the day', dayKey(new Date('2026-09-02T21:30:00Z')), '2026-09-02');
+      is('summer midnight rolls over', dayKey(new Date('2026-09-02T22:30:00Z')), '2026-09-03');
+      // Winter (UTC+1): the rollover moves an hour later in UTC.
+      is('winter evening stays on the day', dayKey(new Date('2026-12-02T22:30:00Z')), '2026-12-02');
+      is('winter midnight rolls over', dayKey(new Date('2026-12-02T23:30:00Z')), '2026-12-03');
+
+      is(
+        'midnight in summer is 22:00Z',
+        zonedDate(2026, 9, 2, 0, 0, 0).toISOString(),
+        '2026-09-01T22:00:00.000Z'
+      );
+      is(
+        'midnight in winter is 23:00Z',
+        zonedDate(2026, 12, 2, 0, 0, 0).toISOString(),
+        '2026-12-01T23:00:00.000Z'
+      );
+      is(
+        'the day after the October clock change is still 24h of calendar',
+        daysBetween('2026-10-25', '2026-10-26'),
+        1
+      );
+
+      is('addDays crosses a month', addDays('2026-09-30', 1), '2026-10-01');
+      is('addDays goes backwards', addDays('2026-01-01', -1), '2025-12-31');
+      is('daysBetween spans the DST change', daysBetween('2026-10-20', '2026-11-03'), 14);
+      is('haLocalDateTime is naive local', haLocalDateTime(new Date('2026-09-02T17:00:00Z')), '2026-09-02 19:00:00');
+
+      const grid = monthGrid(2026, 9);
+      is('September 2026 grid is whole weeks', grid.length % 7, 0);
+      is('grid starts on the Monday before the 1st', grid[0].key, '2026-08-31');
+      is('the 1st is in the month', grid[1].inMonth, true);
+      is('the leading day is not', grid[0].inMonth, false);
+
+      /* ── Event normalisation ───────────────────────────────────────── */
+      section('Events');
+
+      const oneDay = normaliseEvent(
+        { start: { date: '2026-09-02' }, end: { date: '2026-09-03' }, summary: 'Bin day' },
+        'calendar.test'
+      );
+      is('a one-day all-day event does not span two', oneDay.endKey, '2026-09-02');
+      is('and is not multi-day', oneDay.multiDay, false);
+      is('all-day is flagged', oneDay.allDay, true);
+      is('no uid means not editable', oneDay.editable, false);
+
+      const holiday = normaliseEvent(
+        { start: { date: '2026-09-02' }, end: { date: '2026-09-05' }, summary: 'Away', uid: 'x' },
+        'calendar.test'
+      );
+      is('a multi-day all-day event ends on the last real day', holiday.endKey, '2026-09-04');
+      is('and is multi-day', holiday.multiDay, true);
+      is('a uid means editable', holiday.editable, true);
+
+      const toMidnight = normaliseEvent(
+        {
+          start: { dateTime: '2026-09-02T20:00:00+02:00' },
+          end: { dateTime: '2026-09-03T00:00:00+02:00' },
+          summary: 'Film night',
+          uid: 'y',
+        },
+        'calendar.test'
+      );
+      is('an event ending at midnight belongs to the day before', toMidnight.endKey, '2026-09-02');
+
+      const days = groupByDay([holiday], '2026-09-01', '2026-09-07');
+      is('a multi-day event appears on every day it covers', [
+        days.get('2026-09-01').length,
+        days.get('2026-09-02').length,
+        days.get('2026-09-03').length,
+        days.get('2026-09-04').length,
+        days.get('2026-09-05').length,
+      ], [0, 1, 1, 1, 0]);
+      is('later days are marked as continuations', days.get('2026-09-03')[0].continuation, true);
+      is('the first day is not', days.get('2026-09-02')[0].continuation, false);
+
+      /* ── Waste ─────────────────────────────────────────────────────── */
+      section('Waste collections');
+
+      const PREFIX = '12 Example Street, 1000 - Anytown';
+
+      is(
+        'the address prefix is stripped and translated',
+        parseFraction(`${PREFIX} Paper-cardboard`, PREFIX).label,
+        'Papier & karton'
+      );
+      is('Gft normalises to GFT', parseFraction(`${PREFIX} Gft`, PREFIX).label, 'GFT');
+      is('Huisvuil is recognised', parseFraction(`${PREFIX} Huisvuil`, PREFIX).key, 'huisvuil');
+      is('PMD is recognised', parseFraction(`${PREFIX} PMD`, PREFIX).key, 'pmd');
+      is('GFT gets the green bin colour', parseFraction(`${PREFIX} Gft`, PREFIX).color, '#2E7D32');
+      is(
+        'an unknown fraction falls back rather than throwing',
+        parseFraction(`${PREFIX} Kerstbomen`, PREFIX).key,
+        'other'
+      );
+
+      const registry = {
+        'calendar.waste': { label: 'Waste', stripPrefix: PREFIX, kind: 'waste' },
+      };
+      const wasteEvents = [
+        `${PREFIX} PMD`,
+        `${PREFIX} Huisvuil`,
+        `${PREFIX} Gft`,
+        `${PREFIX} Paper-cardboard`,
+      ].map((summary, i) =>
+        normaliseEvent(
+          {
+            start: { date: i === 3 ? '2026-09-02' : '2026-09-09' },
+            end: { date: i === 3 ? '2026-09-03' : '2026-09-10' },
+            summary,
+          },
+          'calendar.waste'
+        )
+      );
+
+      const collections = groupCollections(wasteEvents, registry);
+      is('collections group by day', collections.length, 2);
+      is('the earlier day comes first', collections[0].dayKey, '2026-09-02');
+      is('three fractions share the 9th', collections[1].fractions.length, 3);
+
+      const { today, next } = upcomingCollections(collections, '2026-09-02');
+      is("today's collection is found", today.fractions[0].label, 'Papier & karton');
+      is('the next one is the 9th', next.dayKey, '2026-09-09');
+
+      /* ── Put-out day ───────────────────────────────────────────────── */
+      section('Waste — when to put the bins out');
+
+      // Collections on the 2nd and the 9th; "today" moves around them.
+      const sched = (todayK, offset) => wasteSchedule(collections, todayK, offset);
+
+      is('the day before a collection is the day to act',
+         Boolean(sched('2026-09-01', 1).act), true);
+      is('and it names the right collection',
+         sched('2026-09-01', 1).act.dayKey, '2026-09-02');
+      is('on collection day there is nothing left to do',
+         sched('2026-09-02', 1).act, null);
+      is('but it reports that it was collected',
+         sched('2026-09-02', 1).collectedToday.dayKey, '2026-09-02');
+      is('two days before is too early to act',
+         sched('2026-08-31', 1).act, null);
+      is('with no offset, collection day is the day to act',
+         sched('2026-09-02', 0).act.dayKey, '2026-09-02');
+      is('a two-day offset acts two days before',
+         sched('2026-08-31', 2).act.dayKey, '2026-09-02');
+      is('the next collection is the one after today',
+         sched('2026-09-02', 1).next.dayKey, '2026-09-09');
+      is('the eve of the 9th is an action day',
+         sched('2026-09-08', 1).act.dayKey, '2026-09-09');
+      is('a past collection is never an action',
+         sched('2026-09-10', 1).act, null);
+
+      is('putOutDay steps back one day', putOutDay('2026-09-02', 1), '2026-09-01');
+      is('putOutDay crosses a month boundary', putOutDay('2026-10-01', 1), '2026-09-30');
+      is('putOutDay with no offset is the day itself', putOutDay('2026-09-02', 0), '2026-09-02');
+
+      // The banner has to lead with the action, not the date.
+      const evePanel = wasteBanner(sched('2026-09-01', 1));
+      is('the eve banner says to put them out tonight',
+         evePanel.querySelector('.waste-label').textContent, 'Put out tonight');
+      const dayPanel = wasteBanner(sched('2026-09-02', 1));
+      is('collection day reports it as done',
+         dayPanel.querySelector('.waste-label').textContent, 'Collected this morning');
+      is('and is styled as no longer actionable',
+         dayPanel.classList.contains('is-done'), true);
+      const idlePanel = wasteBanner(sched('2026-09-05', 1));
+      is('an idle day shows the next collection',
+         idlePanel.querySelector('.waste-label').textContent, 'Next collection · Wed 9 Sept');
+
+      /* ── Classification ────────────────────────────────────────────── */
+      section('Calendar types');
+
+      // Types are chosen in Settings, never guessed. The default is the safe
+      // one: an ordinary calendar, which is untidy for collections but never
+      // wrong in a way the user cannot see and fix.
+      const ENTITIES = [
+        { entity_id: 'calendar.family', name: 'Family', supportedFeatures: 7 },
+        { entity_id: 'calendar.other', name: 'Other', supportedFeatures: 7 },
+        { entity_id: 'calendar.bins', name: 'Some Street 9', supportedFeatures: 0 },
+        { entity_id: 'calendar.park', name: 'Recycling Centre', supportedFeatures: 0 },
+      ];
+
+      const plain = buildSourceRegistry(ENTITIES, { sources: {} });
+      is('everything starts as an ordinary calendar', plain['calendar.bins'].kind, 'events');
+      is('including read-only ones', plain['calendar.park'].kind, 'events');
+      is('and nothing starts hidden', plain['calendar.park'].hidden, false);
+      is('the writable calendar is writable', plain['calendar.family'].writable, true);
+      is('a read-only calendar is not', plain['calendar.bins'].writable, false);
+      is('ordinary calendars get distinct palette colours',
+         plain['calendar.family'].color !== plain['calendar.other'].color, true);
+
+      const chosen = buildSourceRegistry(ENTITIES, {
+        sources: {
+          'calendar.bins': { kind: 'waste' },
+          'calendar.park': { kind: 'park' },
+        },
+      });
+      is('a calendar can be told it is waste', chosen['calendar.bins'].kind, 'waste');
+      is('and waste reminds the evening before', chosen['calendar.bins'].remindDaysBefore, 1);
+      is('and takes the waste colour', chosen['calendar.bins'].color, '#A96A12');
+      is('a lone collection calendar is labelled Waste, not its address',
+         chosen['calendar.bins'].label, 'Waste');
+      is('but keeps the address as the prefix to strip',
+         chosen['calendar.bins'].stripPrefix, 'Some Street 9');
+      is(
+        'and it strips cleanly',
+        parseFraction('Some Street 9 Gft', chosen['calendar.bins'].stripPrefix).label,
+        'GFT'
+      );
+
+      is('a calendar can be told it is opening hours', chosen['calendar.park'].kind, 'park');
+      is('which hides it by default', chosen['calendar.park'].hidden, true);
+      is('ordinary calendars are unaffected', chosen['calendar.family'].kind, 'events');
+      is('and have no reminder offset', chosen['calendar.family'].remindDaysBefore, 0);
+
+      const twoBins = buildSourceRegistry(
+        [...ENTITIES, { entity_id: 'calendar.bins2', name: 'Other Street 3', supportedFeatures: 0 }],
+        { sources: { 'calendar.bins': { kind: 'waste' }, 'calendar.bins2': { kind: 'waste' } } }
+      );
+      is('with two, each keeps its own name so they stay distinguishable',
+         [twoBins['calendar.bins'].label, twoBins['calendar.bins2'].label],
+         ['Some Street 9', 'Other Street 3']);
+
+      const tuned = buildSourceRegistry(ENTITIES, {
+        sources: {
+          'calendar.park': { kind: 'park', hidden: false },
+          'calendar.family': { color: '#123456' },
+          'calendar.bins': { kind: 'waste', remindDaysBefore: 2 },
+        },
+      });
+      is('a user can un-hide an opening-hours calendar', tuned['calendar.park'].hidden, false);
+      is('override a colour', tuned['calendar.family'].color, '#123456');
+      is('and change the reminder offset', tuned['calendar.bins'].remindDaysBefore, 2);
+      is('an unknown type falls back to a calendar',
+         buildSourceRegistry(ENTITIES, { sources: { 'calendar.bins': { kind: 'nonsense' } } })['calendar.bins'].kind,
+         'events');
+
+      /* ── Settings storage ──────────────────────────────────────────── */
+      section('Settings follow the user, not the browser');
+
+      const stored = {};
+      const fakeConn = {
+        getUserData: (k) => Promise.resolve(stored[k] || null),
+        setUserData: (k, v) => { stored[k] = v; return Promise.resolve(); },
+      };
+
+      localStorage.setItem('wallcal.settings', JSON.stringify({ startScreen: 'lists' }));
+      is('with nothing stored, the local cache is used',
+         (await fetchSettings(fakeConn)).startScreen, 'lists');
+
+      await saveSettings(fakeConn, { ...cachedSettings(), startScreen: 'month' });
+      is('saving reaches Home Assistant', stored[SETTINGS_KEY].startScreen, 'month');
+      is('and updates the local cache too',
+         JSON.parse(localStorage.getItem('wallcal.settings')).startScreen, 'month');
+
+      // What Home Assistant holds wins, so a second device gets the same setup.
+      stored[SETTINGS_KEY] = { startScreen: 'agenda' };
+      is('the stored copy beats a stale cache',
+         (await fetchSettings(fakeConn)).startScreen, 'agenda');
+      is('and defaults still fill the gaps',
+         (await fetchSettings(fakeConn)).nightMode, 'auto');
+
+      const brokenConn = { getUserData: () => Promise.reject(new Error('offline')) };
+      is('an unreachable Home Assistant falls back to the cache rather than failing',
+         (await fetchSettings(brokenConn)).startScreen, 'agenda');
+
+      localStorage.removeItem('wallcal.settings');
+
+      /* ── Due labels ────────────────────────────────────────────────── */
+      section('Due labels');
+
+      const t = (offset) => addDays(dayKey(new Date()), offset);
+      is('today reads as Today', fmtDue(t(0)).text, 'Today');
+      is('tomorrow reads as Tomorrow', fmtDue(t(1)).text, 'Tomorrow');
+      is('overdue counts the days', fmtDue(t(-2)).text, '2d late');
+      is('overdue is toned as overdue', fmtDue(t(-2)).tone, 'overdue');
+
+      /* ── Interaction ───────────────────────────────────────────────── */
+      section('Interaction');
+
+      const stage = document.createElement('div');
+      stage.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px';
+      document.body.appendChild(stage);
+
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const mkItem = (uid, summary) => ({
+        uid, summary, description: '', status: 'needs_action', done: false,
+        due: null, dueKey: null, dueHasTime: false, dueDate: null,
+      });
+      const list = { entityId: 'todo.family', label: 'Family', canUpdate: true, canDelete: true };
+
+      // 4242 is deliberately not an id any real mouse or finger will use, so
+      // the tester moving their own cursor cannot interfere with these holds.
+      const PID = 4242;
+      function press(el, hold, pointerId = PID) {
+        const at = el.getBoundingClientRect();
+        const opts = { bubbles: true, cancelable: true, pointerId,
+                       clientX: at.left + 4, clientY: at.top + 4 };
+        el.dispatchEvent(new PointerEvent('pointerdown', opts));
+        if (!hold) el.dispatchEvent(new PointerEvent('pointerup', opts));
+        return opts;
+      }
+
+      const move = (x, y, pointerId = PID) =>
+        document.dispatchEvent(
+          new PointerEvent('pointermove', { bubbles: true, pointerId, clientX: x, clientY: y })
+        );
+
+      // Ticking the checkbox must not also open the editor. The checkbox calls
+      // stopPropagation, which used to leave the row's long-press timer running
+      // so the edit sheet appeared half a second after every tick.
+      let toggled = 0, edited = 0, opened = 0;
+      const row = todoRow(mkItem('i1', 'Tap me'), list, {
+        onToggle: () => { toggled++; },
+        onEdit: () => { edited++; },
+        onOpen: () => { opened++; },
+      });
+      stage.appendChild(row);
+      press(row.querySelector('.todo-check'), false);
+      await sleep(750);
+      is('ticking a task marks it done', toggled, 1);
+      is('ticking a task does NOT open the editor', edited, 0);
+      is('ticking a task does NOT open the detail sheet', opened, 0);
+
+      // Tapping the row itself opens the detail sheet -- the same contract as
+      // an event row, so the two screens behave alike with finger or mouse.
+      press(row, false);
+      await sleep(60);
+      is('tapping a task row opens its detail', opened, 1);
+      is('and still does not open the editor', edited, 0);
+      is('and does not toggle it', toggled, 1);
+
+      // Right-click is the mouse equivalent of a long press.
+      row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+      await sleep(60);
+      is('right-clicking a task row opens the editor', edited, 1);
+
+      // A genuine long press still opens it.
+      let held = 0;
+      const row2 = todoRow(mkItem('i2', 'Hold me'), list, { onToggle: () => {}, onEdit: () => { held++; } });
+      stage.appendChild(row2);
+      press(row2, true);
+      await sleep(750);
+      is('holding a task row opens the editor', held, 1);
+
+      // A quick tap on the row does not.
+      let quick = 0;
+      const row3 = todoRow(mkItem('i3', 'Quick'), list, { onToggle: () => {}, onEdit: () => { quick++; } });
+      stage.appendChild(row3);
+      press(row3, false);
+      await sleep(750);
+      is('a quick tap on the row does not open the editor', quick, 0);
+
+      // A different pointer moving — a mouse drifting over the page, or a second
+      // finger — must not cancel a hold in progress. This is what broke it in a
+      // real browser window while passing in headless Chrome, which has no mouse.
+      let survived = 0;
+      const row4 = todoRow(mkItem('i4', 'Held through noise'), list, {
+        onToggle: () => {}, onEdit: () => { survived++; },
+      });
+      stage.appendChild(row4);
+      press(row4, true, PID);
+      move(900, 900, PID + 1);
+      move(50, 700, PID + 1);
+      await sleep(750);
+      is('another pointer moving does not cancel a hold', survived, 1);
+
+      // The pressing pointer genuinely dragging still cancels it.
+      let dragged = 0;
+      const row5 = todoRow(mkItem('i5', 'Dragged'), list, {
+        onToggle: () => {}, onEdit: () => { dragged++; },
+      });
+      stage.appendChild(row5);
+      const at5 = press(row5, true, PID);
+      move(at5.clientX + 200, at5.clientY + 200, PID);
+      await sleep(750);
+      is('dragging the pressing pointer cancels the hold', dragged, 0);
+
+      // A tremor under the threshold does not.
+      let steady = 0;
+      const row6 = todoRow(mkItem('i6', 'Steady'), list, {
+        onToggle: () => {}, onEdit: () => { steady++; },
+      });
+      stage.appendChild(row6);
+      const at6 = press(row6, true, PID);
+      move(at6.clientX + 5, at6.clientY + 4, PID);
+      await sleep(750);
+      is('a small tremor does not cancel the hold', steady, 1);
+
+      stage.remove();
+
+      // Closing a sheet by tapping the scrim removes it mid-gesture, so the
+      // pointerup lands on whatever was underneath. That must not read as a tap
+      // there -- otherwise dismissing the editor over an event reopens it.
+      const stage2 = document.createElement('div');
+      stage2.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px';
+      document.body.appendChild(stage2);
+
+      let tapped = 0;
+      const target = tappable('div', { onTap: () => { tapped++; } }, 'row');
+      stage2.appendChild(target);
+
+      const pt = (type, id) =>
+        target.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: id, clientX: 0, clientY: 0 }));
+
+      pt('pointerup', PID);
+      await sleep(20);
+      is('a pointerup with no pointerdown is not a tap', tapped, 0);
+
+      pt('pointerdown', PID);
+      pt('pointerup', PID);
+      await sleep(20);
+      is('pointerdown then pointerup is a tap', tapped, 1);
+
+      pt('pointerdown', PID);
+      pt('pointerup', PID + 1);
+      await sleep(20);
+      is('a pointerup from a different pointer is not a tap', tapped, 1);
+
+      stage2.remove();
+
+      // The scrim dismisses only on a press that both starts and ends on it.
+      openSheet({ title: 'T', body: document.createElement('div'), actions: [] });
+      let scrim = document.querySelector('.sheet-scrim');
+      is('the sheet opened', Boolean(scrim), true);
+
+      scrim.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: PID }));
+      is('a stray pointerup does not dismiss the sheet',
+         Boolean(document.querySelector('.sheet-scrim')), true);
+
+      scrim.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: PID }));
+      scrim.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: PID }));
+      is('pressing the scrim dismisses the sheet',
+         Boolean(document.querySelector('.sheet-scrim')), false);
+      closeSheet();
+
+      // Panels hidden in JS must actually disappear, despite each component
+      // setting its own `display` which outranks the browser's [hidden] rule.
+      const probe = document.createElement('div');
+      probe.className = 'offline-banner';
+      document.body.appendChild(probe);
+      probe.hidden = true;
+      is('[hidden] beats a component display rule', getComputedStyle(probe).display, 'none');
+      probe.remove();
+
+      // Custom properties must survive h() — Object.assign silently drops them.
+      const coloured = eventRow(
+        { summary: 's', allDay: true, continuation: false, location: '', editable: false,
+          start: new Date(), end: new Date(), startKey: '2026-09-02', endKey: '2026-09-02' },
+        { color: '#0E8A6E', label: 'Alex' },
+        {}
+      );
+      is('per-calendar colour reaches the DOM',
+         coloured.style.getPropertyValue('--event-color').trim(), '#0E8A6E');
+
+
+      /* ── Summary ───────────────────────────────────────────────────── */
+      const summary = document.getElementById('summary');
+      summary.className = failed === 0 ? 'pass' : 'fail';
+      summary.textContent =
+        failed === 0
+          ? `All ${passed} checks passed.`
+          : `${failed} of ${passed + failed} checks FAILED.`;
+      document.title = failed === 0 ? `PASS ${passed}` : `FAIL ${failed}`;
+    </script>
+  </body>
+</html>

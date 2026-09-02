@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preview — Family Wall Calendar</title>
+    <link rel="stylesheet" href="custom_components/family_calendar/frontend/styles/tokens.css" />
+    <link rel="stylesheet" href="custom_components/family_calendar/frontend/styles/app.css" />
+    <style>
+      /* This page only — the frames that hold each screen at tablet size. */
+      html { overflow: auto; }
+      body { overflow: auto; padding: 24px; background: #dfe3ea; }
+      :root.night body { background: #05070a; }
+      .preview-head { max-width: 1200px; margin: 0 auto 20px; font-family: var(--font); }
+      .preview-head h1 { font-size: 1.3rem; margin: 0 0 4px; color: #131922; }
+      .preview-head p { margin: 0; font-size: 0.85rem; color: #4d5766; max-width: 70ch; }
+      .frames { display: flex; gap: 24px; flex-wrap: wrap; max-width: 1200px; margin: 0 auto; }
+      .frame { display: flex; flex-direction: column; gap: 8px; }
+      .frame > label {
+        font-family: var(--font); font-size: 0.72rem; font-weight: 700;
+        letter-spacing: 0.1em; text-transform: uppercase; color: #4d5766;
+      }
+      /* True 800x1280, scaled down to fit on a desktop. */
+      .device { width: 800px; height: 1280px; transform: scale(0.42); transform-origin: top left; }
+      .device-holder { width: 336px; height: 538px; overflow: hidden; border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+      .device .app-shell {
+        width: 800px; height: 1280px; background: var(--bg);
+        display: flex; flex-direction: column; position: relative; overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="preview-head">
+      <h1>Screen preview</h1>
+      <p>
+        Each frame is a real 800&nbsp;×&nbsp;1280 render of the actual screen
+        modules against stubbed Home Assistant data, scaled to 42%. No connection
+        is made. Use this to work on layout without a tablet or a live instance.
+      </p>
+    </div>
+    <div class="frames" id="frames"></div>
+
+    <script type="module">
+      import { setTimeZone, todayKey, addDays } from './custom_components/family_calendar/frontend/app/util/dates.js';
+      import { normaliseEvent } from './custom_components/family_calendar/frontend/app/data/calendars.js';
+      import { groupCollections } from './custom_components/family_calendar/frontend/app/data/waste.js';
+      import { buildSourceRegistry, DEFAULT_SETTINGS } from './custom_components/family_calendar/frontend/app/config.js';
+      import { topbar, filterBar, bottomNav, fab } from './custom_components/family_calendar/frontend/app/ui/components/shell.js';
+      import { h, render } from './custom_components/family_calendar/frontend/app/util/dom.js';
+      import { createTodayScreen } from './custom_components/family_calendar/frontend/app/ui/screens/today.js';
+      import { createAgendaScreen } from './custom_components/family_calendar/frontend/app/ui/screens/agenda.js';
+      import { createMonthScreen } from './custom_components/family_calendar/frontend/app/ui/screens/month.js';
+      import { createListsScreen } from './custom_components/family_calendar/frontend/app/ui/screens/lists.js';
+
+      setTimeZone('Europe/Brussels');
+
+      const T = todayKey();
+      const D = (n) => addDays(T, n);
+      const at = (day, time) => `${day}T${time}:00+02:00`;
+
+      /* ── Stub data, shaped exactly like the real integrations ─────── */
+
+      const calendars = [
+        { entity_id: 'calendar.family', name: 'Family', supportedFeatures: 7 },
+        { entity_id: 'calendar.alex', name: 'Alex', supportedFeatures: 7 },
+        {
+          entity_id: 'calendar.12_example_street_1000_anytown',
+          name: '12 Example Street, 1000 - Anytown',
+          supportedFeatures: 0,
+        },
+        { entity_id: 'calendar.recyclagepark_south', name: 'Southtown', supportedFeatures: 0 },
+      ];
+
+      const params = new URLSearchParams(location.search);
+      const settings = { ...DEFAULT_SETTINGS };
+      // ?muted=1 shows what the screens look like when every ordinary calendar
+      // is switched off — the state that made Today look broken.
+      if (params.has('muted')) {
+        settings.mutedSources = ['calendar.family', 'calendar.alex'];
+      }
+      // Types are chosen in Settings, so the stub sets them the way a user
+      // would rather than expecting them to be inferred.
+      settings.sources = {
+        'calendar.12_example_street_1000_anytown': { kind: 'waste' },
+        'calendar.recyclagepark_south': { kind: 'park' },
+      };
+      const registry = buildSourceRegistry(calendars, settings);
+
+      const WASTE = 'calendar.12_example_street_1000_anytown';
+      const PREFIX = '12 Example Street, 1000 - Anytown';
+
+      const WASTE_DAY = params.get('waste') === 'collected' ? D(0) : D(1);
+
+      const raw = [
+        ['calendar.alex', { summary: 'Zwemles', uid: 'a1', location: 'Sportoase Northtown',
+          start: { dateTime: at(D(0), '15:45') }, end: { dateTime: at(D(0), '16:30') } }],
+        ['calendar.family', { summary: 'Dinner with Ana & Tom', uid: 'a2', location: 'at ours',
+          start: { dateTime: at(D(0), '19:00') }, end: { dateTime: at(D(0), '20:30') } }],
+        ['calendar.alex', { summary: 'School photo day', uid: 'a3',
+          start: { date: D(1) }, end: { date: D(2) } }],
+        ['calendar.family', { summary: 'Film night', uid: 'a4',
+          start: { dateTime: at(D(2), '20:00') }, end: { dateTime: at(D(2), '22:00') } }],
+        ['calendar.family', { summary: 'Groceries and market', uid: 'a5',
+          start: { dateTime: at(D(3), '09:30') }, end: { dateTime: at(D(3), '11:00') } }],
+        ['calendar.family', { summary: 'Weekend in Bruges', uid: 'a6',
+          start: { date: D(5) }, end: { date: D(8) } }],
+        ['calendar.alex', { summary: 'Voetbal', uid: 'a7',
+          start: { dateTime: at(D(7), '10:00') }, end: { dateTime: at(D(7), '11:30') } }],
+        // Collection is tomorrow morning, so today is the evening the bins go
+        // out -- the state the banner exists for. ?waste=collected moves it to
+        // today to preview the already-collected variant.
+        [WASTE, { summary: `${PREFIX} Paper-cardboard`, start: { date: WASTE_DAY }, end: { date: addDays(WASTE_DAY, 1) } }],
+        [WASTE, { summary: `${PREFIX} Huisvuil`, start: { date: D(7) }, end: { date: D(8) } }],
+        [WASTE, { summary: `${PREFIX} Gft`, start: { date: D(7) }, end: { date: D(8) } }],
+        [WASTE, { summary: `${PREFIX} PMD`, start: { date: D(7) }, end: { date: D(8) } }],
+      ];
+
+      const events = raw.map(([id, ev]) => normaliseEvent(ev, id));
+
+      const collections = groupCollections(
+        events.filter((e) => e.entityId === WASTE),
+        registry
+      );
+
+      const lists = [
+        { entityId: 'todo.family', label: 'Family', canAdd: true, canDelete: true,
+          canUpdate: true, canMove: true, canSetDue: true, canSetDueTime: true, canDescribe: true },
+        { entityId: 'todo.shopping_list', label: 'Shopping List', canAdd: true, canDelete: true,
+          canUpdate: true, canMove: true, canSetDue: false, canSetDueTime: false, canDescribe: false },
+      ];
+
+      const mkItem = (uid, summary, extra = {}) => ({
+        uid, summary, description: '', status: 'needs_action', done: false,
+        due: null, dueKey: null, dueHasTime: false, dueDate: null, ...extra,
+      });
+
+      const todoItems = {
+        'todo.family': [
+          mkItem('t1', 'Renew car insurance', { dueKey: D(0), description: 'Expires end of the month' }),
+          mkItem('t2', 'Book the dentist', { dueKey: D(-2) }),
+          mkItem('t3', 'Order firewood', { dueKey: D(3) }),
+          mkItem('t4', 'Fix the shed door'),
+          mkItem('t5', 'Pay school trip', { status: 'completed', done: true }),
+          mkItem('t6', 'Return library books', { status: 'completed', done: true }),
+        ],
+        'todo.shopping_list': [
+          mkItem('s1', 'Koffie'), mkItem('s2', 'Brood'), mkItem('s3', 'Appels'),
+        ],
+      };
+
+      const state = {
+        status: 'connected', events, eventsLoaded: true, loadingEvents: false,
+        collections, lists, todoItems, windowFrom: D(-7), windowTo: D(75),
+      };
+
+      const noop = () => {};
+      const ctx = {
+        state: () => state,
+        settings: () => settings,
+        registry: () => registry,
+        conn: () => ({ status: 'connected', baseUrl: 'http://homeassistant.local:8123', haVersion: '2026.8.3' }),
+        refreshChrome: noop,
+        isVisibleEventSource: (id) =>
+          registry[id] && registry[id].kind === 'events' && !registry[id].hidden &&
+          !(settings.mutedSources || []).includes(id),
+        isVisibleSource: (id) =>
+          registry[id] && !registry[id].hidden && !(settings.mutedSources || []).includes(id),
+        isHiddenList: () => false,
+        silencedEventSources: () =>
+          Object.values(registry).filter(
+            (s) => s.kind === 'events' &&
+                   (s.hidden || (settings.mutedSources || []).includes(s.entityId))
+          ),
+        actions: new Proxy({}, { get: () => noop }),
+      };
+
+      /* ── Render each screen into a device frame ───────────────────── */
+
+      const framesEl = document.getElementById('frames');
+
+      function frameFor(label, screen) {
+        const top = topbar({ onOpenSettings: noop });
+        const filters = filterBar({ onToggle: noop });
+        const nav = bottomNav(noop);
+
+        if (screen.onEnter) screen.onEnter();
+        screen.update();
+
+        const title = screen.title();
+        top.setTitle(title.main, title.sub);
+        top.setClockSize(screen.smallClock);
+        top.setStatus('connected');
+        top.tick();
+
+        if (title.controls) {
+          top.element.querySelector('.topbar-right').appendChild(h('div.month-nav', null, ...title.controls));
+        }
+
+        if (screen.showFilters) {
+          filters.update(
+            Object.values(registry).filter((s) => !s.hidden),
+            new Set(settings.mutedSources || [])
+          );
+        } else {
+          filters.element.hidden = true;
+        }
+
+        nav.setActive(screen.id);
+
+        const spec = screen.fab ? screen.fab() : null;
+        const shell = h(
+          'div.app-shell',
+          null,
+          top.element,
+          filters.element,
+          screen.element,
+          spec ? fab(noop, spec.label) : null,
+          nav.element
+        );
+
+        framesEl.appendChild(
+          h(
+            'div.frame',
+            null,
+            h('label', null, label),
+            h('div.device-holder', null, h('div.device', null, shell))
+          )
+        );
+      }
+
+      frameFor('Today', createTodayScreen(ctx));
+      frameFor('Agenda', createAgendaScreen(ctx));
+      frameFor('Month', createMonthScreen(ctx));
+      frameFor('Lists', createListsScreen(ctx));
+
+      // ?night=1 renders the whole page in the dark palette.
+      if (params.has('night')) {
+        document.documentElement.classList.add('night');
+      }
+      document.title = 'Preview ready';
+    </script>
+  </body>
+</html>

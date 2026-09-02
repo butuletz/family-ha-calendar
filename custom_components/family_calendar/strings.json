@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Family Calendar",
+        "description": "Adds a Family Calendar panel to the sidebar, showing your calendars and to-do lists. Everyone who can open Home Assistant can use it, as themselves — there is nothing to configure here.\n\nColours, which calendars appear, and the waste collection reminder are set inside the panel itself."
+      }
+    },
+    "abort": {
+      "already_configured": "The Family Calendar panel is already set up."
+    }
+  }
+}

@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Panel check — Family Calendar</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 20px;
+        background: #dfe3ea;
+        font: 14px Roboto, "Segoe UI", system-ui, sans-serif;
+        color: #131922;
+      }
+      h1 { font-size: 1.2rem; margin: 0 0 4px; }
+      p.lede { margin: 0 0 16px; color: #4d5766; max-width: 76ch; font-size: 0.85rem; }
+      #verdict { font-weight: 700; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
+      #verdict.pass { background: #d8f3e9; color: #0b6b55; }
+      #verdict.fail { background: #fbdedb; color: #a3271c; }
+      #log { font-family: "Roboto Mono", monospace; font-size: 12px; white-space: pre-wrap;
+             background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+      /* Home Assistant gives a panel the whole content area; mimic that. */
+      #host { width: 800px; height: 1280px; box-shadow: 0 10px 40px rgba(0,0,0,.25);
+              transform: scale(0.5); transform-origin: top left; }
+      #wrap { width: 400px; height: 640px; overflow: hidden; }
+    </style>
+  </head>
+  <body>
+    <h1>Panel check</h1>
+    <p class="lede">
+      Mounts the real <code>&lt;family-calendar-panel&gt;</code> against a stubbed
+      Home Assistant <code>hass</code> object — the same shape the frontend
+      passes a panel. This is the only way to exercise the panel, the shadow
+      DOM and the <code>HassBridge</code> without a running Home Assistant.
+      Nothing here connects to anything.
+    </p>
+    <div id="verdict">Running…</div>
+    <div id="log"></div>
+    <div id="wrap"><div id="host"></div></div>
+
+    <script type="module">
+      // Types are a user choice, so seed the settings a user would have saved.
+      // This has to happen before panel.js is imported: main.js reads settings
+      // once at module scope, and a static import would be hoisted above it.
+      const WASTE_ID = 'calendar.12_example_street_1000_anytown';
+      localStorage.setItem(
+        'wallcal.settings',
+        JSON.stringify({
+          sources: {
+            [WASTE_ID]: { kind: 'waste' },
+            'calendar.recyclagepark_south': { kind: 'park' },
+          },
+        })
+      );
+      await import('./custom_components/family_calendar/frontend/panel.js');
+
+      const log = [];
+      const say = (m) => { log.push(m); document.getElementById('log').textContent = log.join('\n'); };
+
+      const T = new Date();
+      const iso = (d) => d.toISOString().slice(0, 10);
+      const day = (n) => { const d = new Date(T); d.setDate(d.getDate() + n); return iso(d); };
+      const at = (n, hhmm) => `${day(n)}T${hhmm}:00+02:00`;
+
+      const WASTE = 'calendar.12_example_street_1000_anytown';
+      const PREFIX = '12 Example Street, 1000 - Anytown';
+
+      const EVENTS = {
+        'calendar.family': [
+          { summary: 'Dinner with Ana & Tom', uid: 'f1', location: 'at ours',
+            start: { dateTime: at(0, '19:00') }, end: { dateTime: at(0, '20:30') } },
+        ],
+        'calendar.alex': [
+          { summary: 'Zwemles', uid: 'r1', location: 'Sportoase Northtown',
+            start: { dateTime: at(0, '15:45') }, end: { dateTime: at(0, '16:30') } },
+        ],
+        [WASTE]: [
+          { summary: `${PREFIX} Paper-cardboard`, start: { date: day(1) }, end: { date: day(2) } },
+        ],
+        // Opening hours: timed, identical summary, every day. Should be
+        // classified as park and hidden.
+        'calendar.recyclagepark_south': [
+          { summary: 'Southtown', start: { dateTime: at(0, '12:30') }, end: { dateTime: at(0, '19:30') } },
+          { summary: 'Southtown', start: { dateTime: at(1, '12:30') }, end: { dateTime: at(1, '19:30') } },
+        ],
+      };
+
+      const state = (id, name, features) => ({
+        entity_id: id,
+        state: 'off',
+        attributes: { friendly_name: name, supported_features: features },
+      });
+
+      const calls = [];
+
+      // What Home Assistant holds for this user. The panel should prefer this
+      // over the stale localStorage cache above.
+      let userData = {
+        sources: {
+          [WASTE_ID]: { kind: 'waste' },
+          'calendar.recyclagepark_south': { kind: 'park' },
+        },
+        startScreen: 'today',
+      };
+
+      // The shape Home Assistant's frontend actually hands a panel.
+      const hass = {
+        config: { time_zone: 'Europe/Brussels', version: '2026.8.3' },
+        user: { name: 'Sam', id: 'u1', is_admin: true },
+        states: {
+          'calendar.family': state('calendar.family', 'Family', 7),
+          'calendar.alex': state('calendar.alex', 'Alex', 7),
+          [WASTE]: state(WASTE, PREFIX, 0),
+          'calendar.recyclagepark_south': state('calendar.recyclagepark_south', 'Southtown', 0),
+          'todo.family': state('todo.family', 'Family', 127),
+          'todo.shopping_list': state('todo.shopping_list', 'Shopping List', 15),
+        },
+        connection: {
+          connected: true,
+          addEventListener() {},
+          removeEventListener() {},
+          sendMessagePromise(msg) {
+            calls.push('ws:' + msg.type);
+            if (msg.type === 'frontend/get_user_data') {
+              return Promise.resolve({ value: userData });
+            }
+            if (msg.type === 'frontend/set_user_data') {
+              userData = msg.value;
+              return Promise.resolve(null);
+            }
+            return Promise.resolve({});
+          },
+          subscribeMessage(cb, msg) {
+            calls.push('sub:' + msg.type);
+            if (msg.type === 'todo/item/subscribe') {
+              const items =
+                msg.entity_id === 'todo.family'
+                  ? [
+                      { uid: 't1', summary: 'Renew car insurance', status: 'needs_action', due: day(0) },
+                      { uid: 't2', summary: 'Book the dentist', status: 'needs_action', due: day(-2) },
+                      { uid: 't3', summary: 'Pay school trip', status: 'completed' },
+                    ]
+                  : [{ uid: 's1', summary: 'Koffie', status: 'needs_action' }];
+              setTimeout(() => cb({ items }), 0);
+            }
+            return Promise.resolve(() => {});
+          },
+        },
+        callService(domain, service, data, target) {
+          calls.push(`service:${domain}.${service}`);
+          return Promise.resolve();
+        },
+        callApi(method, path) {
+          calls.push(`api:${method} ${path.split('?')[0]}`);
+          if (path === 'calendars') {
+            return Promise.resolve(
+              Object.keys(EVENTS).map((id) => ({
+                entity_id: id,
+                name: hass.states[id].attributes.friendly_name,
+              }))
+            );
+          }
+          const id = decodeURIComponent(path.replace('calendars/', '').split('?')[0]);
+          return Promise.resolve(EVENTS[id] || []);
+        },
+      };
+
+      const panel = document.createElement('family-calendar-panel');
+      document.getElementById('host').appendChild(panel);
+      panel.hass = hass;
+      panel.narrow = false;
+      panel.route = { path: '' };
+
+      // Home Assistant pushes a new hass object on every state change.
+      setTimeout(() => { panel.hass = { ...hass }; }, 400);
+
+      await new Promise((r) => setTimeout(r, 2200));
+
+      const root = panel.shadowRoot;
+      const checks = [];
+      const ok = (label, cond, detail) => { checks.push({ label, cond: !!cond, detail }); };
+
+      ok('shadow root created', !!root);
+      ok('stylesheets linked into the shadow root', root && root.querySelectorAll('link[rel=stylesheet]').length === 2);
+      ok('app surface rendered', root && root.querySelector('.app-root'));
+      ok('header rendered', root && root.querySelector('.topbar-title'));
+      ok('bottom navigation rendered', root && root.querySelector('.nav'));
+      ok('calendars fetched over hass.callApi', calls.includes('api:GET calendars'));
+      ok('events fetched per calendar', calls.some((c) => c.startsWith('api:GET calendars/')));
+      ok('to-do lists subscribed over the hass connection', calls.includes('sub:todo/item/subscribe'));
+      ok('event rows drawn', root && root.querySelectorAll('.event').length > 0);
+      ok('to-do rows drawn', root && root.querySelectorAll('.todo').length > 0);
+      ok('waste banner drawn', root && root.querySelector('.waste'));
+      ok('a calendar set to waste renders as fractions in the banner',
+         root && root.querySelector('.waste .fraction'));
+      ok('a calendar set to opening hours is hidden',
+         root && ![...root.querySelectorAll('.event-tag')].some((t) => t.textContent === 'Southtown'));
+      ok('settings read from Home Assistant, not just localStorage',
+         calls.includes('ws:frontend/get_user_data'));
+      ok('and the stored copy beat the stale local cache',
+         root && root.querySelector('.waste'));
+
+      ok('night class scoped to our root, not the page',
+         !document.documentElement.classList.contains('night'));
+      ok('nothing leaked into the host document', !document.querySelector('.topbar'));
+
+      const heading = root && root.querySelector('.topbar-title');
+      say('calls made: ' + [...new Set(calls)].join(', '));
+      say('heading: ' + (heading ? heading.textContent : '(none)'));
+      say('');
+      for (const c of checks) say((c.cond ? '  OK   ' : '  FAIL ') + c.label);
+
+      const failed = checks.filter((c) => !c.cond).length;
+      const verdict = document.getElementById('verdict');
+      verdict.className = failed ? 'fail' : 'pass';
+      verdict.textContent = failed
+        ? `${failed} of ${checks.length} panel checks FAILED`
+        : `All ${checks.length} panel checks passed.`;
+      document.title = failed ? `FAIL ${failed}` : 'PASS';
+    </script>
+  </body>
+</html>

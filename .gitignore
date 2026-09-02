@@ -1,0 +1,16 @@
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Local notes and scratch work
+scratch/
+*.local.*
+
+# Staging folder produced by deploy.ps1 -Stage
+_deploy/
