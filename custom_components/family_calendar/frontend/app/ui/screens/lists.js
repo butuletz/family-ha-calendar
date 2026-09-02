@@ -5,7 +5,7 @@
  * elsewhere in the house updates here without a refresh.
  */
 
-import { h, tappable, keepScroll } from '../../util/dom.js';
+import { h, tappable, keepScroll, onLongPress } from '../../util/dom.js';
 import { todoRow, sectionHeading, emptyState, skeletonRows } from '../components/rows.js';
 import { sortItems } from '../../data/todos.js';
 
@@ -76,12 +76,13 @@ export function createListsScreen(ctx) {
         h(
           'div.segmented',
           { role: 'tablist' },
-          ...all.map((entry) =>
-            tappable(
+          ...all.map((entry) => {
+            const tab = tappable(
               'button',
               {
                 role: 'tab',
                 'aria-selected': String(entry.entityId === list.entityId),
+                title: `${entry.label} — hold or right-click to rename`,
                 onTap: () => {
                   activeListId = entry.entityId;
                   screen.update();
@@ -89,8 +90,18 @@ export function createListsScreen(ctx) {
                 },
               },
               entry.label
-            )
-          )
+            );
+
+            // Holding a tab renames the list, the same gesture that recolours a
+            // calendar chip. A tap still switches lists.
+            onLongPress(tab, () => ctx.actions.renameList(entry));
+            tab.addEventListener('contextmenu', (ev) => {
+              ev.preventDefault();
+              ctx.actions.renameList(entry);
+            });
+
+            return tab;
+          })
         )
       );
     }

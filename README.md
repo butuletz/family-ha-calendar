@@ -12,7 +12,7 @@ can open this, as themselves.
 
 There is **no build step and no dependencies** — plain ES modules and CSS.
 
-> **Version 0.1.5 — early.** Everything here has been verified against a
+> **Version 0.1.6 — early.** Everything here has been verified against a
 > real Home Assistant except the write paths: creating, editing and deleting
 > events, and adding or editing tasks. Those are exercised by the test suite
 > against a stubbed connection, but have not yet been run against live data.
@@ -63,7 +63,7 @@ to clear.
 HACS tracks GitHub releases, so an update is:
 
 1. Bump `version` in `custom_components/family_calendar/manifest.json` (HACS reads this, and the tag must match)
-2. Commit, then tag and push: `git tag v0.1.6 && git push --tags`
+2. Commit, then tag and push: `git tag v0.1.7 && git push --tags`
 3. Publish a release for that tag on GitHub
 
 The `Validate` workflow runs hassfest and the HACS action on every push, which
@@ -219,6 +219,9 @@ preview.html            All four screens at tablet size
 - **Long-press** (touch) or **right-click** (mouse) jumps straight to the editor.
 - **Long-press or right-click a calendar chip** on Agenda or Month to recolour
   that calendar. A tap still switches it off and on; holding never does both.
+- **Long-press or right-click a list tab** on Lists to rename that list. This
+  renames the entity in Home Assistant, so the new name shows everywhere — and
+  Home Assistant only allows it for administrators.
 - The **checkbox** on a task is a direct one-tap toggle and never opens anything.
 - **The small gear** beside the Live indicator, top right, opens Settings. The
   indicator itself only reports connection state — it is not a button.

@@ -120,6 +120,19 @@ export class HassBridge {
     return this.sendMessage({ type: 'frontend/set_user_data', key, value });
   }
 
+  /**
+   * Rename an entity, which is how a to-do list gets a new name — the list's
+   * name *is* its entity name. This is the registry, so it needs an admin
+   * account; callers surface the refusal rather than failing silently.
+   */
+  renameEntity(entityId, name) {
+    return this.sendMessage({
+      type: 'config/entity_registry/update',
+      entity_id: entityId,
+      name,
+    });
+  }
+
   /** Nothing to tear down: the connection belongs to Home Assistant. */
   close() {}
 }

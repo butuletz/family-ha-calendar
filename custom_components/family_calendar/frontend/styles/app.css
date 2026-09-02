@@ -720,12 +720,33 @@ button {
   line-height: 1;
 }
 
+/* ── Screen area ──────────────────────────────────────────── */
+
+/* Holds the current screen plus anything that floats over it. Positioned, so
+   the floating button and the toasts anchor to the bottom of the *content*
+   rather than the app: they used to be measured from the app's bottom edge and
+   overlapped the navigation whenever it grew, which it does on a phone. */
+.screen-host {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+
+.screen-slot {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 /* ── Floating action button ───────────────────────────────── */
 
 .fab {
   position: absolute;
   right: var(--s-5);
-  bottom: calc(var(--touch) + var(--s-8));
+  bottom: var(--s-5);
   width: 64px;
   height: 64px;
   border-radius: 50%;
@@ -1012,7 +1033,8 @@ button {
   position: absolute;
   left: var(--s-5);
   right: var(--s-5);
-  bottom: calc(var(--touch) + var(--s-10));
+  /* Clears the floating button, which sits in the same corner. */
+  bottom: calc(var(--s-5) + 64px + var(--s-3));
   display: flex;
   flex-direction: column;
   gap: var(--s-2);

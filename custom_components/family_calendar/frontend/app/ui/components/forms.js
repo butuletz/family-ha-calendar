@@ -311,6 +311,72 @@ export function todoSheet({ item, list, onSave, onDelete }) {
 }
 
 /**
+ * Rename something. Used for to-do lists, reached by holding the list's tab.
+ *
+ * @param {object} options
+ * @param {string} options.title
+ * @param {string} options.label
+ * @param {string} options.value
+ * @param {string} [options.hint]
+ * @param {(name: string) => Promise<void>} options.onSave
+ */
+export function renameSheet({ title, label, value, hint, onSave }) {
+  const input = h('input', {
+    type: 'text',
+    value: value || '',
+    autocomplete: 'off',
+    spellcheck: 'false',
+  });
+
+  const error = h('div.setup-error', { hidden: true });
+  const save = tappable('button.btn.btn-primary', {}, 'Rename');
+
+  save.addEventListener('click', async () => {
+    const name = input.value.trim();
+    if (!name) {
+      error.hidden = false;
+      error.textContent = 'Give it a name.';
+      return;
+    }
+    if (name === value) {
+      close();
+      return;
+    }
+
+    save.disabled = true;
+    save.textContent = 'Renaming…';
+
+    try {
+      await onSave(name);
+      close();
+    } catch (err) {
+      save.disabled = false;
+      save.textContent = 'Rename';
+      error.hidden = false;
+      error.textContent = err && err.message ? err.message : 'Home Assistant refused the change.';
+    }
+  });
+
+  const { close } = openSheet({
+    title,
+    body: h(
+      'div',
+      { style: { display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' } },
+      error,
+      h('div.field', null, h('label', null, label), input),
+      hint
+        ? h(
+            'p',
+            { style: { margin: 0, fontSize: 'var(--t-sm)', color: 'var(--ink-3)', lineHeight: '1.5' } },
+            hint
+          )
+        : null
+    ),
+    actions: [tappable('button.btn.btn-secondary', { onTap: () => close() }, 'Cancel'), save],
+  });
+}
+
+/**
  * Recolour one calendar.
  *
  * Reachable by long-pressing (or right-clicking) its filter chip, which is

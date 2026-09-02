@@ -334,6 +334,48 @@
       ok('and does NOT focus a colour input',
          !focused || focused.getAttribute('type') !== 'color');
 
+      // The reported overlap: the floating button sat over the navigation.
+      // Measure rather than eyeball, since the nav's height changes with a
+      // phone's gesture inset.
+      const fabEl = root && root.querySelector('.fab');
+      const navEl2 = root && root.querySelector('.nav');
+      if (fabEl && navEl2) {
+        const fb = fabEl.getBoundingClientRect();
+        const nb2 = navEl2.getBoundingClientRect();
+        ok('the add button clears the bottom navigation', fb.bottom <= nb2.top + 1);
+      } else {
+        ok('the add button clears the bottom navigation', false);
+      }
+
+      // Holding a list tab renames the list; tapping still switches to it.
+      const listsBtn = root && [...root.querySelectorAll('.nav button')]
+        .find((b) => b.textContent.includes('Lists'));
+      if (listsBtn) {
+        const lb = listsBtn.getBoundingClientRect();
+        const o = { bubbles: true, cancelable: true, pointerId: 93,
+                    clientX: lb.left + 5, clientY: lb.top + 5 };
+        listsBtn.dispatchEvent(new PointerEvent('pointerdown', o));
+        listsBtn.dispatchEvent(new PointerEvent('pointerup', o));
+        await new Promise((r) => setTimeout(r, 300));
+      }
+
+      const tab = root && root.querySelector('.segmented button');
+      ok('the Lists screen shows a tab per list', !!tab);
+
+      if (tab) {
+        const tb = tab.getBoundingClientRect();
+        const o = { bubbles: true, cancelable: true, pointerId: 94,
+                    clientX: tb.left + 10, clientY: tb.top + 10 };
+        tab.dispatchEvent(new PointerEvent('pointerdown', o));
+        await new Promise((r) => setTimeout(r, 700));
+        tab.dispatchEvent(new PointerEvent('pointerup', o));
+        await new Promise((r) => setTimeout(r, 450));
+      }
+
+      const renameOpen = root && root.querySelector('.sheet');
+      ok('holding a list tab opens the rename sheet',
+         renameOpen && /Rename list/.test(renameOpen.textContent));
+
       ok('night class scoped to our root, not the page',
          !document.documentElement.classList.contains('night'));
       ok('nothing leaked into the host document', !document.querySelector('.topbar'));

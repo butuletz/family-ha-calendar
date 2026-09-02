@@ -44,6 +44,7 @@ import {
   eventDetailSheet,
   todoDetailSheet,
   colorSheet,
+  renameSheet,
 } from './ui/components/forms.js';
 import { openSettings } from './ui/screens/settings.js';
 import { createTodayScreen } from './ui/screens/today.js';
@@ -201,8 +202,12 @@ function buildChrome() {
   shell.filters = filterBar({ onToggle: toggleSource, onRecolor: recolorSource });
   shell.offline = offlineBanner();
   shell.nav = bottomNav(navigate);
-  shell.body = h('div', { style: { flex: '1', display: 'flex', flexDirection: 'column', minHeight: '0' } });
+  shell.screenSlot = h('div.screen-slot');
   shell.fabHost = h('div');
+  // The floating button and the toasts live inside the screen area rather than
+  // beside the navigation, so they sit above it whatever height it takes --
+  // which changes with a phone's gesture inset.
+  shell.body = h('div.screen-host', null, shell.screenSlot, shell.fabHost);
 
   render(
     root,
@@ -210,10 +215,9 @@ function buildChrome() {
     shell.offline.element,
     shell.filters.element,
     shell.body,
-    shell.fabHost,
     shell.nav.element
   );
-  mountToasts(root);
+  mountToasts(shell.body);
 
   screens = {
     today: createTodayScreen(ctx),
@@ -234,7 +238,7 @@ function navigate(id) {
   if (!screen) return;
 
   current = screen;
-  render(shell.body, screen.element);
+  render(shell.screenSlot, screen.element);
   shell.nav.setActive(id);
 
   if (screen.onEnter) screen.onEnter();
@@ -430,6 +434,40 @@ function updateSource(entityId, patch) {
   // may have skipped -- and a new kind regroups them.
   if (patch.hidden === false || patch.kind) refreshEvents();
   else updateAll();
+}
+
+/**
+ * Rename a to-do list. The list's name is its entity name, so this writes to
+ * the entity registry -- which Home Assistant only lets administrators do.
+ */
+function renameList(list) {
+  renameSheet({
+    title: 'Rename list',
+    label: 'List name',
+    value: list.label,
+    hint: 'This renames the entity in Home Assistant, so the new name shows everywhere, not just here.',
+    onSave: async (name) => {
+      try {
+        await conn.renameEntity(list.entityId, name);
+      } catch (err) {
+        const message = (err && err.message) || '';
+        throw new Error(
+          /unauthorized|not authorized|admin/i.test(message)
+            ? 'Renaming a list needs a Home Assistant administrator account.'
+            : message || 'Home Assistant refused the rename.'
+        );
+      }
+
+      // hass.states catches up on its own, but the tab should change now.
+      store.set((state) => ({
+        lists: (state.lists || []).map((l) =>
+          l.entityId === list.entityId ? { ...l, label: name } : l
+        ),
+      }));
+      toast(`Renamed to ${name}`);
+      updateAll();
+    },
+  });
 }
 
 function updateList(entityId, patch) {
@@ -683,6 +721,7 @@ const actions = {
 
   updateSource,
   updateList,
+  renameList,
   updateSettings(patch) {
     persist(patch);
     applyNightMode();
