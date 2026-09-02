@@ -174,6 +174,15 @@ set the screen timeout to *Never*, or use a kiosk browser.
 
 ---
 
+## The HACS icon
+
+HACS shows a grey placeholder until the domain exists in
+[home-assistant/brands](https://github.com/home-assistant/brands). `brands/` has
+the icon ready and the submission steps; it is cosmetic, and the sidebar icon
+works regardless.
+
+---
+
 ## Layout
 
 ```
@@ -191,6 +200,7 @@ custom_components/family_calendar/
     app/ui/screens/     Today, Agenda, Month, Lists, Settings
     styles/             Tokens and component CSS
 
+brands/                 Icon for home-assistant/brands, and how to submit it
 deploy.ps1              Copy the integration, or -Stage for drag-and-drop
 serve.ps1               Static server for the development pages
 selftest.html           Logic assertions

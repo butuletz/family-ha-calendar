@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    Source for the home-assistant/brands submission. The rounded square and the
+    dot colours are the app's own: the accent blue it draws its first calendar
+    in, then the teal and amber a second calendar and the waste banner take, so
+    the icon says "several calendars in one place" at 32px as well as 512.
+  -->
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3D6BE0" />
+      <stop offset="1" stop-color="#2450C4" />
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="114" fill="url(#ground)" />
+
+  <!-- The two hanging rings, which is what reads as "calendar" when small. -->
+  <rect x="150" y="74" width="30" height="70" rx="15" fill="#DCE6FA" />
+  <rect x="332" y="74" width="30" height="70" rx="15" fill="#DCE6FA" />
+
+  <rect x="86" y="110" width="340" height="316" rx="42" fill="#FFFFFF" />
+  <rect x="86" y="110" width="340" height="74" rx="42" fill="#B9CCF5" />
+  <rect x="86" y="152" width="340" height="32" fill="#B9CCF5" />
+
+  <!-- Three calendars, three colours: the app's palette, not decoration. -->
+  <circle cx="166" cy="256" r="30" fill="#2F5FD8" />
+  <circle cx="256" cy="256" r="30" fill="#0E8A6E" />
+  <circle cx="346" cy="256" r="30" fill="#A96A12" />
+
+  <circle cx="166" cy="352" r="30" fill="#D3DBE8" />
+  <circle cx="256" cy="352" r="30" fill="#2F5FD8" />
+  <circle cx="346" cy="352" r="30" fill="#D3DBE8" />
+</svg>
