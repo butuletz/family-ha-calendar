@@ -1,19 +1,19 @@
 {
   "domain": "family_calendar",
   "name": "Family Calendar",
-  "version": "0.1.0",
-  "documentation": "https://github.com/butuletz/family-ha-calendar",
-  "issue_tracker": "https://github.com/butuletz/family-ha-calendar/issues",
   "codeowners": [
     "@butuletz"
   ],
   "config_flow": true,
-  "single_config_entry": true,
   "dependencies": [
     "http",
     "frontend"
   ],
-  "requirements": [],
+  "documentation": "https://github.com/butuletz/family-ha-calendar",
   "integration_type": "service",
-  "iot_class": "local_push"
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/butuletz/family-ha-calendar/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0"
 }
