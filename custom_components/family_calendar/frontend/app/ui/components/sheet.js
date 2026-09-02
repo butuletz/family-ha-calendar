@@ -80,8 +80,14 @@ export function openSheet({ title, body, actions = [], onClose }) {
   (sheetHost || document.body).appendChild(scrim);
   openSheetEl = scrim;
 
-  // Focus the first field so a physical keyboard can drive the sheet too.
-  const firstInput = sheet.querySelector('input, textarea, select');
+  // Focus the first field someone would type into, so a keyboard can drive the
+  // sheet. Deliberately not "the first input of any kind": focusing a colour or
+  // date input pops the platform's own picker open, so opening Settings — whose
+  // first control is a colour swatch — threw up a colour picker nobody asked
+  // for.
+  const firstInput = sheet.querySelector(
+    'input[type="text"], input[type="url"], input[type="password"], input[type="search"], textarea'
+  );
   if (firstInput) firstInput.focus();
 
   return { close, element: sheet };

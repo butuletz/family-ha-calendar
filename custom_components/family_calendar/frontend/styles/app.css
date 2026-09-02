@@ -144,6 +144,12 @@ button {
   font-size: var(--t-2xl);
 }
 
+.conn-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
 .conn {
   display: flex;
   align-items: center;
@@ -151,6 +157,25 @@ button {
   font-size: var(--t-xs);
   font-weight: 600;
   color: var(--ink-3);
+}
+
+/* Small enough to ignore on a wall display, with a tap target far bigger than
+   it looks: the padding grows the hit area and the negative margin keeps the
+   header from growing with it. */
+.conn-settings {
+  color: var(--ink-3);
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0.6;
+  padding: 13px;
+  margin: -13px -9px -13px -4px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.conn-settings:hover,
+.conn-settings:focus-visible {
+  opacity: 1;
 }
 
 .conn-dot {

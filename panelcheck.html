@@ -297,6 +297,43 @@
       ok('the panel measures its own top offset',
          /^\d+px$/.test(panel.style.getPropertyValue('--panel-offset').trim()));
 
+      // Settings has its own control now. Tapping the status text used to open
+      // it, which meant glancing at the connection opened a sheet.
+      const openSheetEl = root && root.querySelector('.sheet-scrim');
+      if (openSheetEl) openSheetEl.remove();
+
+      const gear = root && root.querySelector('.conn-settings');
+      ok('there is a settings button beside the status', !!gear);
+
+      const statusEl = root && root.querySelector('.conn');
+      ok('and the status itself is not a button',
+         statusEl && statusEl.getAttribute('role') !== 'button');
+
+      if (gear) {
+        // Small on purpose, but it still has to be reachable with a finger.
+        // offsetWidth/Height, not getBoundingClientRect: the harness scales the
+        // panel by half, and a rect would report the scaled size.
+        ok('the settings button has a usable tap target',
+           Math.min(gear.offsetWidth, gear.offsetHeight) >= 36);
+
+        const gb = gear.getBoundingClientRect();
+        const o = { bubbles: true, cancelable: true, pointerId: 91,
+                    clientX: gb.left + gb.width / 2, clientY: gb.top + gb.height / 2 };
+        gear.dispatchEvent(new PointerEvent('pointerdown', o));
+        gear.dispatchEvent(new PointerEvent('pointerup', o));
+        await new Promise((r) => setTimeout(r, 450));
+      }
+
+      const settingsSheet = root && root.querySelector('.sheet');
+      ok('tapping it opens Settings',
+         settingsSheet && /Settings/.test(settingsSheet.textContent));
+
+      // The reported bug: Settings' first control is a colour swatch, and
+      // focusing a colour input pops the platform picker open by itself.
+      const focused = root && root.activeElement;
+      ok('and does NOT focus a colour input',
+         !focused || focused.getAttribute('type') !== 'color');
+
       ok('night class scoped to our root, not the page',
          !document.documentElement.classList.contains('night'));
       ok('nothing leaked into the host document', !document.querySelector('.topbar'));

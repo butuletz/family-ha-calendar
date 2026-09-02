@@ -160,6 +160,11 @@ Verified against a live instance (HA 2026.8.3), not assumed:
 
 ## Conventions
 
+- **Do not auto-focus a colour or date input.** `openSheet` focuses the first
+  *typing* target only. Focusing `input[type=color]` or a date field makes the
+  platform open its own picker, which is how opening Settings started throwing
+  up a colour picker on its own.
+
 - **Timezone**: never use raw `Date` methods for anything user-facing.
   Everything goes through `util/dates.js`, which resolves against an explicit
   IANA zone taken from `hass.config.time_zone`.

@@ -29,22 +29,26 @@ export function topbar({ onOpenSettings }) {
   const statusDot = h('span.conn-dot');
   const statusText = h('span');
 
-  const status = tappable(
+  // Reporting state and opening settings are two different jobs. They used to
+  // be the same element, so reading the connection meant opening a sheet.
+  const status = h(
     'div.conn',
-    {
-      dataset: { status: 'connecting' },
-      'aria-label': 'Connection status. Opens settings.',
-      onTap: onOpenSettings,
-    },
+    { dataset: { status: 'connecting' }, role: 'status' },
     statusDot,
     statusText
+  );
+
+  const settingsButton = tappable(
+    'button.conn-settings',
+    { onTap: onOpenSettings, 'aria-label': 'Settings', title: 'Settings' },
+    '⚙'
   );
 
   const element = h(
     'header.topbar',
     null,
     h('div.topbar-date', null, title, sub),
-    h('div.topbar-right', null, clock, status)
+    h('div.topbar-right', null, clock, h('div.conn-row', null, status, settingsButton))
   );
 
   return {
