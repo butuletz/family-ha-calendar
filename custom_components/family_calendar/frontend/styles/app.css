@@ -28,10 +28,13 @@
   /* A definite height, not 100%. Home Assistant's panel container does not give
      us one, so `height: 100%` resolves to auto: the app grows to fit 60 days of
      agenda, the bottom navigation ends up below all of it, and `.screen-body`
-     never becomes a scroll container -- which is also why the wheel only worked
-     over the page outside the app. */
-  height: 100vh;
-  height: 100dvh;
+     never becomes a scroll container.
+
+     --panel-offset is measured by panel.js -- whatever Home Assistant puts
+     above us, most visibly the status-bar padding in the companion app.
+     Without subtracting it, offset + full viewport overflows the screen. */
+  height: calc(100vh - var(--panel-offset, 0px));
+  height: calc(100dvh - var(--panel-offset, 0px));
 }
 
 /* The app's own surface. Inside a Home Assistant panel there is no body to
@@ -665,6 +668,8 @@ button {
   background: var(--card);
   border-top: 1px solid var(--rule);
   padding: var(--s-2) var(--s-2) var(--s-3);
+  /* Clears the gesture bar on a phone; zero everywhere else. */
+  padding-bottom: calc(var(--s-3) + env(safe-area-inset-bottom, 0px));
 }
 
 .nav button {

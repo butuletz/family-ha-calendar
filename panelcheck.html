@@ -292,6 +292,11 @@
       ok('and does NOT switch that calendar off',
          chipAfter && chipAfter.getAttribute('aria-pressed') === pressedBefore);
 
+      // The panel has to know how far down the page it starts, or it sizes
+      // itself to the whole viewport and overflows by that much.
+      ok('the panel measures its own top offset',
+         /^\d+px$/.test(panel.style.getPropertyValue('--panel-offset').trim()));
+
       ok('night class scoped to our root, not the page',
          !document.documentElement.classList.contains('night'));
       ok('nothing leaked into the host document', !document.querySelector('.topbar'));
