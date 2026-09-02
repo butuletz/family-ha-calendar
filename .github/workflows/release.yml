@@ -1,0 +1,75 @@
+name: Release
+
+# HACS offers an update when a GitHub *release* exists, not merely a tag. That
+# step was manual and easy to forget, which is exactly how a tagged fix ends up
+# never reaching anyone. Pushing a tag now publishes the release, with the notes
+# taken from CHANGELOG.md so there is one place to write them.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish a release for"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Check the manifest version matches the tag
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          MANIFEST=$(python3 -c "import json;print(json.load(open('custom_components/family_calendar/manifest.json'))['version'])")
+
+          if [ "$MANIFEST" != "$VERSION" ]; then
+            echo "::error::Tag $TAG expects version $VERSION, but manifest.json says $MANIFEST."
+            echo "HACS reads manifest.json, so a mismatch installs a version that reports itself wrongly."
+            exit 1
+          fi
+          echo "manifest.json and $TAG both say $VERSION"
+
+      - name: Take the notes for this version out of CHANGELOG.md
+        id: notes
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          # Everything between this version's heading and the next one.
+          awk -v v="$VERSION" '
+            $0 == "## " v { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+
+          if [ ! -s notes.md ]; then
+            echo "::warning::CHANGELOG.md has no '## $VERSION' section; falling back to the commit subject."
+            git log -1 --pretty=%s > notes.md
+          fi
+
+          echo "--- notes ---"
+          cat notes.md
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file notes.md --title "$TAG"
+            echo "Updated the existing release for $TAG"
+          else
+            gh release create "$TAG" --notes-file notes.md --title "$TAG"
+            echo "Created the release for $TAG"
+          fi

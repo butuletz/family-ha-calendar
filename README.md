@@ -12,7 +12,7 @@ can open this, as themselves.
 
 There is **no build step and no dependencies** — plain ES modules and CSS.
 
-> **Version 0.1.6 — early.** Everything here has been verified against a
+> **Version 0.1.7 — early.** Everything here has been verified against a
 > real Home Assistant except the write paths: creating, editing and deleting
 > events, and adding or editing tasks. Those are exercised by the test suite
 > against a stubbed connection, but have not yet been run against live data.
@@ -60,14 +60,26 @@ to clear.
 
 ### Releasing a new version
 
-HACS tracks GitHub releases, so an update is:
+1. Add a `## <version>` section at the top of [CHANGELOG.md](CHANGELOG.md)
+2. Bump `version` in `custom_components/family_calendar/manifest.json` to match
+3. Commit, then tag and push:
 
-1. Bump `version` in `custom_components/family_calendar/manifest.json` (HACS reads this, and the tag must match)
-2. Commit, then tag and push: `git tag v0.1.7 && git push --tags`
-3. Publish a release for that tag on GitHub
+```powershell
+git tag v0.1.8
+git push origin main --tags
+```
 
-The `Validate` workflow runs hassfest and the HACS action on every push, which
-catches manifest and structure mistakes before anyone installs them.
+The **Release** workflow publishes the GitHub release for you, using that
+changelog section as the notes. HACS offers an update when a release exists —
+not merely a tag — so this is the step that actually ships it. If the tag and
+the manifest disagree on the version it refuses to publish, since HACS reads the
+manifest and a mismatch would install something that misreports itself.
+
+To write notes for a tag that predates this, run the workflow by hand: **Actions
+→ Release → Run workflow**, and give it the tag.
+
+The **Validate** workflow runs hassfest and the HACS action on every push,
+catching manifest and structure mistakes before anyone installs them.
 
 ---
 

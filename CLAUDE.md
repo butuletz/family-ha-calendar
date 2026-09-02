@@ -30,9 +30,14 @@ for the frontend — see "caching" below.
 
 The repo is installable through HACS as a custom repository. That means the
 `custom_components/family_calendar/` layout, `manifest.json`, `hacs.json` and
-`LICENSE` are load-bearing, and a **release is a git tag plus a bumped
-`version` in manifest.json** — HACS compares tags, not commits. The `Validate`
-workflow runs hassfest and the HACS action on every push; keep it green.
+`LICENSE` are load-bearing.
+
+**Releasing**: add a `## <version>` section to `CHANGELOG.md`, bump `version` in
+`manifest.json` to match, then tag `v<version>` and push. The `Release` workflow
+publishes the GitHub release with that section as its notes, and fails if the
+tag and manifest disagree. HACS offers an update when a *release* exists, not
+merely a tag. The `Validate` workflow runs hassfest and the HACS action on every
+push; keep it green.
 
 Three pages stand in for a test runner, none of which connect to anything:
 
