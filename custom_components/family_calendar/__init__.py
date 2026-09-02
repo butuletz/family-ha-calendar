@@ -30,11 +30,18 @@ from homeassistant.components.frontend import (
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN, PANEL_ICON, PANEL_NAME, PANEL_TITLE, PANEL_URL, URL_BASE
 
 _LOGGER = logging.getLogger(__name__)
+
+#: Setup happens through a config entry. The only YAML this accepts is a bare
+#: `family_calendar:` line, kept so anyone who added one before the config flow
+#: existed is migrated rather than dropped -- hence "empty" rather than
+#: `config_entry_only`, which would reject that line outright.
+CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 #: Set once the static route exists. Registering the same path twice raises.
 _STATIC_READY = "static_ready"
