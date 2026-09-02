@@ -912,6 +912,31 @@ button {
   transform: translateX(24px);
 }
 
+/* ── Colour picker ────────────────────────────────────────── */
+
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  gap: var(--s-3);
+}
+
+.swatch-option {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--swatch);
+  border: 3px solid transparent;
+  /* Keeps the target a finger's width even when the circle is smaller. */
+  min-height: var(--touch);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.swatch-option.is-current {
+  border-color: var(--ink);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.12),
+    0 0 0 3px var(--bg);
+}
+
 /* ── Buttons ──────────────────────────────────────────────── */
 
 .btn {

@@ -61,7 +61,7 @@
         SETTINGS_KEY,
       } from './custom_components/family_calendar/frontend/app/config.js';
       import { todoRow, eventRow, wasteBanner } from './custom_components/family_calendar/frontend/app/ui/components/rows.js';
-      import { tappable } from './custom_components/family_calendar/frontend/app/util/dom.js';
+      import { tappable, onLongPress } from './custom_components/family_calendar/frontend/app/util/dom.js';
       import { openSheet, closeSheet } from './custom_components/family_calendar/frontend/app/ui/components/sheet.js';
 
       setTimeZone('Europe/Brussels');
@@ -434,6 +434,31 @@
       row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
       await sleep(60);
       is('right-clicking a task row opens the editor', edited, 1);
+
+      // A long press must not also count as a tap when the finger comes up.
+      // This matters wherever the two do different things -- a filter chip
+      // toggles a calendar on tap and recolours it on hold, and one gesture
+      // must not do both.
+      let held2 = 0;
+      let tapped2 = 0;
+      const dual = tappable('div', { onTap: () => { tapped2++; } }, 'dual');
+      onLongPress(dual, () => { held2++; });
+      stage.appendChild(dual);
+
+      const dualOpts = { bubbles: true, cancelable: true, pointerId: PID, clientX: 0, clientY: 0 };
+      dual.dispatchEvent(new PointerEvent('pointerdown', dualOpts));
+      await sleep(750);
+      dual.dispatchEvent(new PointerEvent('pointerup', dualOpts));
+      await sleep(60);
+      is('holding fires the long press', held2, 1);
+      is('and the release is NOT also a tap', tapped2, 0);
+
+      // A quick tap on the same element still taps.
+      dual.dispatchEvent(new PointerEvent('pointerdown', dualOpts));
+      dual.dispatchEvent(new PointerEvent('pointerup', dualOpts));
+      await sleep(60);
+      is('a short press still taps', tapped2, 1);
+      is('and does not fire the long press', held2, 1);
 
       // A genuine long press still opens it.
       let held = 0;

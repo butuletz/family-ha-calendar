@@ -7,6 +7,9 @@
  * covers the one thing a rebuild would otherwise lose.
  */
 
+/** Marks an element whose long press has just fired, so the release is ignored. */
+const LONG_PRESS_FIRED = Symbol('longPressFired');
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'line', 'g', 'polyline', 'text']);
 
@@ -141,6 +144,15 @@ export function onTap(el, handler) {
     if (pointerId === null || ev.pointerId !== pointerId) return;
     pointerId = null;
 
+    // Releasing after a long press is not also a tap. Until now this happened
+    // to work only because the sheet a long press opens covers the element and
+    // swallows the release; anything that long-presses without opening one
+    // would fire both handlers.
+    if (el[LONG_PRESS_FIRED]) {
+      el[LONG_PRESS_FIRED] = false;
+      return;
+    }
+
     if (!moved) handler(ev);
   });
 
@@ -213,6 +225,7 @@ export function onLongPress(el, handler, ms = 500) {
     'pointerdown',
     (ev) => {
       stop();
+      el[LONG_PRESS_FIRED] = false;
       pointerId = ev.pointerId;
       startX = ev.clientX;
       startY = ev.clientY;
@@ -223,6 +236,8 @@ export function onLongPress(el, handler, ms = 500) {
 
       timer = setTimeout(() => {
         stop();
+        // Tell any tap handler on this element to skip the coming release.
+        el[LONG_PRESS_FIRED] = true;
         if (navigator.vibrate) navigator.vibrate(12);
         handler(ev);
       }, ms);

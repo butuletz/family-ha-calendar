@@ -12,7 +12,7 @@ can open this, as themselves.
 
 There is **no build step and no dependencies** — plain ES modules and CSS.
 
-> **Version 0.1.2 — early.** Everything here has been verified against a
+> **Version 0.1.3 — early.** Everything here has been verified against a
 > real Home Assistant except the write paths: creating, editing and deleting
 > events, and adding or editing tasks. Those are exercised by the test suite
 > against a stubbed connection, but have not yet been run against live data.
@@ -63,7 +63,7 @@ to clear.
 HACS tracks GitHub releases, so an update is:
 
 1. Bump `version` in `custom_components/family_calendar/manifest.json` (HACS reads this, and the tag must match)
-2. Commit, then tag and push: `git tag v0.1.3 && git push --tags`
+2. Commit, then tag and push: `git tag v0.1.4 && git push --tags`
 3. Publish a release for that tag on GitHub
 
 The `Validate` workflow runs hassfest and the HACS action on every push, which
@@ -83,7 +83,7 @@ pages that stand in for a test runner, none of which connect to anything:
 
 | Page | What it does |
 |---|---|
-| `selftest.html` | 105 assertions over the date, event, waste-parsing and interaction logic — DST boundaries, all-day exclusive ends, multi-day expansion, fraction parsing, calendar classification, and that ticking a task neither opens its editor nor its detail sheet. |
+| `selftest.html` | 109 assertions over the date, event, waste-parsing and interaction logic — DST boundaries, all-day exclusive ends, multi-day expansion, fraction parsing, calendar classification, and that ticking a task neither opens its editor nor its detail sheet. |
 | `panelcheck.html` | Mounts the real `<family-calendar-panel>` against a stubbed `hass` object. The only way to exercise the panel, the shadow DOM and `HassBridge` without a running Home Assistant. |
 | `preview.html` | Renders all four screens at true 800 × 1280 against stubbed data, for layout work. `?night=1`, `?muted=1`, `?waste=collected`. |
 
@@ -217,6 +217,8 @@ preview.html            All four screens at tablet size
   opens a form directly, so brushing a row on the wall cannot rewrite the
   calendar, and it behaves identically with a finger or a mouse.
 - **Long-press** (touch) or **right-click** (mouse) jumps straight to the editor.
+- **Long-press or right-click a calendar chip** on Agenda or Month to recolour
+  that calendar. A tap still switches it off and on; holding never does both.
 - The **checkbox** on a task is a direct one-tap toggle and never opens anything.
 - **Tap the connection indicator**, top right under the clock, for Settings.
 - Calendars can be switched off two ways: the **chips** on Agenda and Month, and

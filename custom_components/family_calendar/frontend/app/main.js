@@ -11,6 +11,9 @@ import {
   buildSourceRegistry,
   filterableSources,
   wasteSources,
+  PALETTE,
+  WASTE_COLOR,
+  PARK_COLOR,
 } from './config.js';
 import { createStore } from './util/store.js';
 import { h, render } from './util/dom.js';
@@ -40,6 +43,7 @@ import {
   todoSheet,
   eventDetailSheet,
   todoDetailSheet,
+  colorSheet,
 } from './ui/components/forms.js';
 import { openSettings } from './ui/screens/settings.js';
 import { createTodayScreen } from './ui/screens/today.js';
@@ -194,7 +198,7 @@ const shell = {};
 
 function buildChrome() {
   shell.top = topbar({ onOpenSettings: () => openSettingsSheet() });
-  shell.filters = filterBar({ onToggle: toggleSource });
+  shell.filters = filterBar({ onToggle: toggleSource, onRecolor: recolorSource });
   shell.offline = offlineBanner();
   shell.nav = bottomNav(navigate);
   shell.body = h('div', { style: { flex: '1', display: 'flex', flexDirection: 'column', minHeight: '0' } });
@@ -388,6 +392,28 @@ function toggleSource(entityId) {
   else muted.add(entityId);
   persist({ mutedSources: [...muted] });
   updateAll();
+}
+
+/** Long press on a filter chip: pick a new colour for that calendar. */
+function recolorSource(entityId) {
+  const source = registry[entityId];
+  if (!source) return;
+
+  // The palette first, then the colour this kind would have used by default, so
+  // there is always a way back to the original without remembering the hex.
+  const suggested = [...PALETTE];
+  for (const extra of [WASTE_COLOR, PARK_COLOR]) {
+    if (!suggested.includes(extra)) suggested.push(extra);
+  }
+
+  colorSheet({
+    source,
+    palette: suggested,
+    onPick: (color) => {
+      updateSource(entityId, { color });
+      toast(`${source.label} recoloured`);
+    },
+  });
 }
 
 function updateSource(entityId, patch) {

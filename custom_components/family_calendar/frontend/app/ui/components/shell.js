@@ -3,7 +3,7 @@
  * filter chips, and the bottom navigation.
  */
 
-import { h, tappable, render } from '../../util/dom.js';
+import { h, tappable, render, onLongPress } from '../../util/dom.js';
 import { fmtClock, fmtWeekday, fmtLongDate } from '../../util/dates.js';
 
 const STATUS_TEXT = {
@@ -76,11 +76,16 @@ export function topbar({ onOpenSettings }) {
 /**
  * Calendar filter chips.
  *
+ * Tap switches a calendar off and on; a long press (or right-click, for a
+ * mouse) recolours it, which is the fastest route to the control people
+ * actually reach for and puts it where they are already looking.
+ *
  * @param {object} options
  * @param {(entityId:string) => void} options.onToggle
+ * @param {(entityId:string) => void} [options.onRecolor]
  * @returns {{element: HTMLElement, update: Function}}
  */
-export function filterBar({ onToggle }) {
+export function filterBar({ onToggle, onRecolor }) {
   const element = h('div.filters', { role: 'group', 'aria-label': 'Calendars' });
 
   return {
@@ -94,18 +99,29 @@ export function filterBar({ onToggle }) {
       element.hidden = sources.length < 2;
       render(
         element,
-        sources.map((source) =>
-          tappable(
+        sources.map((source) => {
+          const chip = tappable(
             'button.chip',
             {
               style: { '--chip-color': source.color },
               'aria-pressed': String(!muted.has(source.entityId)),
+              title: onRecolor ? `${source.label} — hold or right-click to recolour` : source.label,
               onTap: () => onToggle(source.entityId),
             },
             h('span.chip-dot'),
             source.label
-          )
-        )
+          );
+
+          if (onRecolor) {
+            onLongPress(chip, () => onRecolor(source.entityId));
+            chip.addEventListener('contextmenu', (ev) => {
+              ev.preventDefault();
+              onRecolor(source.entityId);
+            });
+          }
+
+          return chip;
+        })
       );
     },
   };

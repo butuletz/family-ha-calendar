@@ -310,6 +310,69 @@ export function todoSheet({ item, list, onSave, onDelete }) {
   });
 }
 
+/**
+ * Recolour one calendar.
+ *
+ * Reachable by long-pressing (or right-clicking) its filter chip, which is
+ * where someone is already looking when a colour bothers them — Settings has
+ * the same control, but four taps away.
+ *
+ * @param {object} source The registry entry being recoloured.
+ * @param {string[]} palette Suggested colours.
+ * @param {(color: string) => void} onPick
+ */
+export function colorSheet({ source, palette, onPick }) {
+  const swatches = h('div.swatch-grid');
+
+  const choose = (color) => {
+    onPick(color);
+    close();
+  };
+
+  for (const color of palette) {
+    swatches.appendChild(
+      tappable('button.swatch-option', {
+        style: { '--swatch': color },
+        'aria-label': color,
+        class: color.toLowerCase() === (source.color || '').toLowerCase() ? 'is-current' : null,
+        onTap: () => choose(color),
+      })
+    );
+  }
+
+  // The native picker covers everything the grid does not, and on a tablet it
+  // is the platform's own control rather than something reinvented here.
+  const custom = h('input.color-swatch', {
+    type: 'color',
+    value: source.color,
+    'aria-label': 'Any other colour',
+  });
+  custom.addEventListener('change', () => choose(custom.value));
+
+  const body = h(
+    'div',
+    { style: { display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' } },
+    swatches,
+    h(
+      'div.switch-row',
+      null,
+      h(
+        'span.switch-label',
+        null,
+        h('b', null, 'Any other colour'),
+        h('span', null, 'Opens this device’s colour picker')
+      ),
+      custom
+    )
+  );
+
+  const { close } = openSheet({
+    title: `Colour for ${source.label}`,
+    body,
+    actions: [tappable('button.btn.btn-secondary', { onTap: () => close() }, 'Cancel')],
+  });
+}
+
 /** A read-only label/value pair inside a detail sheet. */
 function detail(label, value, options = {}) {
   if (!value) return null;

@@ -62,7 +62,14 @@
       const say = (m) => { log.push(m); document.getElementById('log').textContent = log.join('\n'); };
 
       const T = new Date();
-      const iso = (d) => d.toISOString().slice(0, 10);
+      // Day keys must be built in the app's timezone, not UTC. toISOString()
+      // put "today's" events on yesterday between midnight and 02:00 local,
+      // which made these checks fail for two hours a day. en-CA formats as
+      // YYYY-MM-DD, which is the shape Home Assistant uses for all-day events.
+      const dayFmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Brussels', year: 'numeric', month: '2-digit', day: '2-digit',
+      });
+      const iso = (d) => dayFmt.format(d);
       const day = (n) => { const d = new Date(T); d.setDate(d.getDate() + n); return iso(d); };
       const at = (n, hhmm) => `${day(n)}T${hhmm}:00+02:00`;
 
@@ -242,6 +249,48 @@
         ok('the sheet opens inside the visible panel',
            sb.top >= hostBox.top - 1 && sb.bottom <= hostBox.bottom + 1);
       }
+
+      // The reported worry: holding a chip to recolour it must not also switch
+      // that calendar off, which is what a plain tap does.
+      const sheetNow = root && root.querySelector('.sheet-scrim');
+      if (sheetNow) sheetNow.remove();
+
+      // Today deliberately has no filter chips, so switch to Agenda first --
+      // which also exercises navigation.
+      const agendaBtn = root && [...root.querySelectorAll('.nav button')]
+        .find((b) => b.textContent.includes('Agenda'));
+      if (agendaBtn) {
+        const nb = agendaBtn.getBoundingClientRect();
+        const o = { bubbles: true, cancelable: true, pointerId: 87,
+                    clientX: nb.left + 5, clientY: nb.top + 5 };
+        agendaBtn.dispatchEvent(new PointerEvent('pointerdown', o));
+        agendaBtn.dispatchEvent(new PointerEvent('pointerup', o));
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      ok('navigating to Agenda shows the filter chips',
+         root && root.querySelectorAll('.chip').length > 0);
+
+      const chip = root && root.querySelector('.chip');
+      const chipLabel = chip && chip.textContent.trim();
+      const pressedBefore = chip && chip.getAttribute('aria-pressed');
+
+      if (chip) {
+        const cb = chip.getBoundingClientRect();
+        const o = { bubbles: true, cancelable: true, pointerId: 88,
+                    clientX: cb.left + 10, clientY: cb.top + 10 };
+        chip.dispatchEvent(new PointerEvent('pointerdown', o));
+        await new Promise((r) => setTimeout(r, 700));
+        chip.dispatchEvent(new PointerEvent('pointerup', o));
+        await new Promise((r) => setTimeout(r, 450));
+      }
+
+      const colorSheetOpen = root && root.querySelector('.swatch-grid');
+      ok('holding a calendar chip opens its colour picker', !!colorSheetOpen);
+
+      const chipAfter = root && [...root.querySelectorAll('.chip')]
+        .find((c) => c.textContent.trim() === chipLabel);
+      ok('and does NOT switch that calendar off',
+         chipAfter && chipAfter.getAttribute('aria-pressed') === pressedBefore);
 
       ok('night class scoped to our root, not the page',
          !document.documentElement.classList.contains('night'));
